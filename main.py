@@ -6,7 +6,7 @@ import asyncio
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
 
-from database import Base, engine
+from database import Base, Note, session, engine, utils
 
 load_dotenv()
 
@@ -20,7 +20,12 @@ async def main() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    await dp.start_polling(bot)
+    note = Note(
+        owner_id = 1,
+        title = "Test",
+        content = "Some content"
+    )
+    await utils.insert_obj(session, note)
 
 if __name__ == "__main__":
     asyncio.run(main())
