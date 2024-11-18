@@ -36,9 +36,41 @@ async def start(message: Message) -> None:
     "Функция приветствует пользователя и возвращает клавиатуру"
     text = f"Hello, {message.from_user.username}!"  # type: ignore
     markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Добавить заметку", callback_data="add_note")]
+        [InlineKeyboardButton(text="Добавить заметку", callback_data="add_note")],
+        [InlineKeyboardButton(text="Мои заметки", callback_data="my_notes")]
     ])
     await message.answer(text=text, reply_markup=markup)
+
+
+@dp.callback_query(lambda call: call.data == "my_notes")
+async def get_notes(call: CallbackQuery) -> None:
+    "Функция отправляет пользователю его заметки"
+    notes = await utils.select_many(session, owner_id=call.message.chat.id) # type: ignore
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=note.title, callback_data=f"note_id:{note.id}")]
+        for note in notes
+    ])
+    text = "Ваши заметки"
+    await call.message.answer(text=text, reply_markup=markup)  # type: ignore
+
+
+@dp.callback_query(lambda call: call.data.startswith("note_id:"))
+async def get_note(call: CallbackQuery) -> None:
+    "Функция отправляет пользователю конкретную заметку"
+    note_id=int(call.data[8:])  # type: ignore
+    note = await utils.select_one(session, note_id=note_id)  # type: ignore
+    markup = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="Удалить", callback_data=f"delete:{note_id}")
+    ]])
+    await call.message.answer(text=f"{note.title}\n{note.content}\n{note.created}", reply_markup=markup)  # type: ignore
+
+
+@dp.callback_query(lambda call: call.data.startswith("delete:"))
+async def delete_note(call: CallbackQuery) -> None:
+    "Функция удаляет заметки"
+    note_id=int(call.data[7:])  # type: ignore
+    await utils.delete(session, note_id=note_id)
+    await call.message.edit_text(text="Удалено!")  # type: ignore
 
 
 @dp.callback_query(lambda call: call.data == "add_note")
